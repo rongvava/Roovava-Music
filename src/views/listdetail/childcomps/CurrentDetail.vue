@@ -67,7 +67,6 @@
 <script setup>
 import {dateChange} from 'common/Utils'
 import {defineProps,computed,ref} from "vue";
-import {getSongDetail} from "@/network/detail";
 const props = defineProps({
   songDetail:Object
 })

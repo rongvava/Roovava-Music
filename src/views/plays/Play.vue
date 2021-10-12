@@ -3,15 +3,17 @@
 <div class="play_page">
   <div class="play_cover">
     <div class="play_image">
-      <img :src="state.currentPlayImages[index]" alt="">
-<!--      -->
-<!--      -->
+      <img v-show="state.currentPlayImages[index]" :src="state.currentPlayImages[index]" alt="">
     </div>
-    <div class="play_info">
-      <div class="play_name"><span>{{state.currentPlayAlbum[index]}}</span><i><svg class="icon love" aria-hidden="true">
+    <div class="play_info" v-show="state.currentPlayName[index]">
+      <div class="play_name">
+        <span>{{state.currentPlayName[index]}}</span>
+        <i><svg class="icon love" aria-hidden="true">
         <use xlink:href="#icon-aixin"></use>
-      </svg></i></div>
-      <div class="play_nickname">{{state.currentPlayName[index]}}</div>
+      </svg>
+        </i>
+      </div>
+      <div class="play_nickname">{{state.currentPlayAlbum[index]}}</div>
     </div>
   </div>
   <div class="play_control">
@@ -36,10 +38,10 @@
       </div>
     </div>
     <div class="control_progress">
-      <audio ref="audioRefs" :src="state.currentPlaySong"></audio>
-      <span class="starttime">00:00</span>
-      <a-progress class="progre" :showInfo="false" style="width: 90%;" :percent="10" trailColor="#ddd" strokeColor="#ff5777"></a-progress>
-      <span class="sumtime">{{ state.currentPlayTime[index] }}</span>
+      <audio ref="audioRefs" @ended="MusicEnded" @timeupdate="audioTimeUpdate" :src="state.currentPlaySong"></audio>
+      <span class="starttime">{{ state.currentAudioTime }}</span>
+      <a-progress class="progre" :showInfo="false" style="width: 90%;" :percent="state.currentprogre" trailColor="#ddd" strokeColor="#ff5777"></a-progress>
+      <span class="sumtime" v-show="state.currentTime">{{ state.currentTime }}</span>
     </div>
   </div>
   <div class="play_more_func">
@@ -51,12 +53,14 @@
 </template>
 
 <script setup>
-import { ref, reactive,toRaw,getCurrentInstance } from "vue";
+import { ref, reactive,toRaw,getCurrentInstance,computed } from "vue";
 import { getSongUrl,getSongDetail,_getSongDetailImg } from 'network/detail'
 import {message} from "ant-design-vue";
+import {formatDate} from 'common/Utils'
 let index = ref(0)
 let audioRefs = ref(null)
 console.log(audioRefs)
+console.log(formatDate(new Date(15.177143*1000), 'mm:ss'));
 let state = reactive({
   songsList:[],
   currentPlaySong: '',  //当前播放url
@@ -66,30 +70,53 @@ let state = reactive({
   currentPlayImages:'', //当前播放歌曲的图片
   currentPlayName: '',  //当前播放歌曲的专辑
   currentPlayAlbum: '',  //当前播放歌曲的歌手
-  currentPlayTime:'',  //当前播放歌曲的时长
+  currentPlayTime:'',  //当前播放歌曲的列表时长
+  currentSongList:[],  //当前歌单的歌曲列表
+  currentDetail:{},  //点击获取当前的歌曲详情
+  currentTime: '',  //点击获取当前的歌曲时长
+  currentAudioTime: '00:00', //播放过的时间
+  currentprogre: 0,  //当前播放的进度条
 })
+// state.currentAudioTime = computed(() => {
+//     return formatDate(new Date(audioRefs.value.currentTime * 1000), "mm:ss") || "00:00";
+// })
+
 //拿到本地存储的当前歌单的歌曲id列表
   let songlisturl = window.localStorage.getItem('songlisturl')
 const _getSongDetail = async () => {
+  //请求歌曲列表详情
  let res = await  getSongDetail(songlisturl)
   //只拿到需要的数据
   let pic = new _getSongDetailImg(res.songs)
   state.currentSongDetail = pic
-  console.log(state.currentSongDetail)
-  console.log(pic)
 }
 _getSongDetail()
-//接受传过来的事件  点击歌曲播放
+//请求歌曲列表url地址
+const _getSongUrl = async () => {
+  let res = await getSongUrl(songlisturl)
+  //歌曲列表url
+  state.songsList = res.data
+  changeUrlIndex(index.value)
+}
+_getSongUrl()
+//传递url
+const changeUrlIndex = (index) => {
+  state.currentPlaySong = state.songsList[index].url
+}
 const $bus = getCurrentInstance().appContext.config.globalProperties.$bus
+$bus.on('songsList',index => {
+  state.currentSongList = index
+})
+//接受传过来的事件  点击歌曲播放
 $bus.on('CurrentIndex',option => {
+  state.currentDetail = state.currentSongList[option]
+  console.log(state.currentDetail)
   state.currentPlayIndex = option
   index.value = option
-  console.log(index.value)
-  console.log(window.localStorage.getItem('pic'));
   state.currentPlayImages = window.localStorage.getItem('pic').split(',')
   state.currentPlayName = window.localStorage.getItem('name').split(',')
   state.currentPlayAlbum = window.localStorage.getItem('album').split(',')
-  state.currentPlayTime = window.localStorage.getItem('time').split(',')
+  // state.currentPlayTime = window.localStorage.getItem('time').split(',')
   //传递url
   changeUrlIndex(option)
   //播放
@@ -99,19 +126,6 @@ $bus.on('CurrentIndex',option => {
   //显示对应歌曲信息
 
 })
-console.log(songlisturl)
-//请求歌曲列表url
-const _getSongUrl = async () => {
-  let res = await getSongUrl(songlisturl)
-  state.songsList = res.data
-  console.log(state.songsList)
-  changeUrlIndex(index.value)
-}
-_getSongUrl()
-//传递url
-const changeUrlIndex = (index) => {
-  state.currentPlaySong = state.songsList[index].url
-}
 //  播放/暂停/歌曲
 const changeSong = (type) => {
   //点击播放
@@ -172,7 +186,23 @@ const switchSong = (type) => {
     common()
   }
 }
-
+//播放时间改变调用
+const audioTimeUpdate = () => {
+  //格式化当前播放的时间
+  state.currentAudioTime = formatDate(new Date(audioRefs.value.currentTime*1000),'mm:ss')
+  state.currentTime = formatDate(new Date(audioRefs.value.duration*1000),'mm:ss')
+  state.currentprogre = audioRefs.value.currentTime/audioRefs.value.duration*100
+}
+//播放结束调用
+const MusicEnded = () => {
+  state.changeBtn = false
+  setTimeout(() => {
+    //切换下一首歌
+    switchSong('next')
+    //播放进度条置为0
+    state.currentTime = 0
+  }, 2000)
+}
 
 </script>
 
@@ -193,8 +223,8 @@ const switchSong = (type) => {
       width: 65px;
       height: 65px;
       img{
-        width: 100%;
-        height: 100%;
+        width: 65px;
+        height: 65px;
         border-radius: 10px;
       }
     }
@@ -208,6 +238,11 @@ const switchSong = (type) => {
       font-size: 16px;
       .play_name {
         display: flex;
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 1;
+        height: 23px;
         span {}
         i {
           display: flex;
@@ -219,6 +254,12 @@ const switchSong = (type) => {
             height: 24px;
           }
         }
+      }
+      .play_nickname {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 1;
       }
     }
   }

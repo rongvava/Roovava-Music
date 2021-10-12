@@ -9,7 +9,7 @@
 <script setup>
 import CurrentDetail from './childcomps/CurrentDetail'
 import CurrentContent from "./childcomps/CurrentContent";
-import { reactive } from 'vue'
+import { reactive,getCurrentInstance } from 'vue'
 import { useStore } from 'vuex'
 import {
   getMusicListDetail,
@@ -51,6 +51,9 @@ const _getMusicListDetail = async () => {
   console.log(state.songIds)
   let resu = await getSongDetail(state.songIds)
   console.log(resu)
+  const instance = getCurrentInstance()
+  const $bus = instance.appContext.config.globalProperties.$bus
+  $bus.emit('songsList',resu.songs)
   let songs = new songDetail(resu.songs)
   console.log(songs)
   state.currentSongsTime = songs.time

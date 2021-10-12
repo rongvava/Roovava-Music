@@ -54,9 +54,14 @@ export function getSongUrl(...id) {
         url:`/song/url?id=${id}`
     })
 }
-// //获取歌曲详情
-// export function getSongDetail(...id) {
-//     return request({
-//         url: `/song/detail?ids=${id}`
-//     })
-// }
+// //获取歌单评论
+export function getSongComment(id,limit,offset) {
+    return request({
+        url: '/comment/playlist',
+        params: {
+            id,
+            limit,
+            offset
+        }
+    })
+}

@@ -2,10 +2,9 @@
 评论
 </template>
 
-<script>
-export default {
-  name: "CurrentComment"
-}
+<script setup>
+import { getSongComment } from 'network/detail'
+
 </script>
 
 <style scoped>
